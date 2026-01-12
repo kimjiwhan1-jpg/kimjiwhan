@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 끝말잇기 대결</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React and Babel for browser execution -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Round:wght@400;700;800&display=swap');
+        body { font-family: 'Nanum Round', sans-serif; }
+        .chat-scroll::-webkit-scrollbar { width: 6px; }
+        .chat-scroll::-webkit-scrollbar-track { background: transparent; }
+        .chat-scroll::-webkit-scrollbar-thumb { background: #bae6fd; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-sky-50">
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        // Lucide Icon Component Wrapper
+        const Icon = ({ name, size = 24, className = "" }) => {
+            const [svg, setSvg] = useState("");
+            useEffect(() => {
+                if (window.lucide) {
+                    const iconSvg = lucide.createIcons();
+                }
+            }, []);
+            return <i data-lucide={name} style={{ width: size, height: size }} className={className}></i>;
+        };
+
+        const App = () => {
+            const [history, setHistory] = useState([]);
+            const [inputValue, setInputValue] = useState('');
+            const [message, setMessage] = useState('게임 시작 버튼을 눌러주세요!');
+            const [isGameOver, setIsGameOver] = useState(true);
+            const [score, setScore] = useState(0);
+            const [usedWords, setUsedWords] = useState(new Set());
+            const scrollRef = useRef(null);
+
+            const wordDb = [
+                "사과", "과자", "자전거", "거미", "미소", "소나무", "무지개", "개미", "미역", "역사",
+                "사자", "자석", "석양", "양파", "파리", "리본", "본체", "체육", "육교", "교실",
+                "실내", "내과", "과일", "일본", "본격", "격파", "파도", "도토리", "리듬", "듬직",
+                "직업", "업그레이드", "드라마", "마스크", "크림", "임금", "금메달", "달력", "력사",
+                "사탕", "탕수육", "육아", "아기", "기차", "차표", "표범", "범고래", "래퍼", "퍼즐",
+                "즐거움", "움막", "막대기", "기구", "구두", "두부", "부모", "모자", "자유", "유리",
+                "음악", "악기", "기상", "상자", "자라", "라디오", "오리", "리터", "터널",
+                "널빤지", "지구", "구름", "름름", "름름이", "이름", "음료수", "수박", "박수", "수건",
+                "건강", "강아지", "지우개", "개나리", "듬성듬성", "성공", "공룡", "룡왕", "왕자"
+            ];
+
+            const applyDuum = (char) => {
+                const rules = {
+                    '라': '나', '락': '낙', '란': '난', '랄': '날', '람': '남', '랍': '납', '랑': '낭',
+                    '래': '내', '랭': '냉', '랴': '야', '략': '약', '량': '양', '려': '여', '력': '역',
+                    '련': '연', '렬': '열', '렴': '염', '렵': '엽', '령': '영', '례': '예', '로': '노',
+                    '록': '녹', '론': '논', '롱': '농', '뢰': '뇌', '료': '요', '룡': '용', '루': '누',
+                    '류': '유', '륜': '윤', '률': '율', '륭': '융', '르': '느', '리': '이', '린': '인',
+                    '림': '임', '립': '입'
+                };
+                return rules[char] || char;
+            };
+
+            useEffect(() => {
+                if (scrollRef.current) {
+                    scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+                }
+                if (window.lucide) lucide.createIcons();
+            }, [history]);
+
+            const startGame = () => {
+                const firstWord = "사과";
+                setHistory([{ sender: 'ai', text: firstWord }]);
+                setUsedWords(new Set([firstWord]));
+                setScore(0);
+                setIsGameOver(false);
+                setMessage("단어를 입력해서 끝말을 이어가세요!");
+                setInputValue('');
+            };
+
+            const handleSubmit = (e) => {
+                e.preventDefault();
+                if (isGameOver || !inputValue.trim()) return;
+
+                const userWord = inputValue.trim();
+                const lastWord = history[history.length - 1].text;
+                const lastChar = lastWord[lastWord.length - 1];
+                const firstChar = userWord[0];
+
+                if (userWord.length < 2) {
+                    setMessage("두 글자 이상의 단어를 입력해주세요!");
+                    return;
+                }
+                if (usedWords.has(userWord)) {
+                    setMessage("이미 사용한 단어예요!");
+                    return;
+                }
+                if (firstChar !== lastChar && firstChar !== applyDuum(lastChar)) {
+                    setMessage(`'${lastChar}'(으)로 시작하는 단어여야 해요!`);
+                    return;
+                }
+
+                const updatedUsedWords = new Set(usedWords).add(userWord);
+                setUsedWords(updatedUsedWords);
+                setHistory(prev => [...prev, { sender: 'user', text: userWord }]);
+                setScore(prev => prev + 1);
+                setInputValue('');
+                setMessage("AI가 생각 중...");
+
+                setTimeout(() => {
+                    const nextChar = userWord[userWord.length - 1];
+                    const possibleWords = wordDb.filter(w => 
+                        (w[0] === nextChar || w[0] === applyDuum(nextChar)) && !updatedUsedWords.has(w)
+                    );
+
+                    if (possibleWords.length === 0) {
+                        setIsGameOver(true);
+                        setMessage("대단해요! AI를 이겼습니다! 축하합니다! 🎉");
+                    } else {
+                        const aiWord = possibleWords[Math.floor(Math.random() * possibleWords.length)];
+                        setHistory(prev => [...prev, { sender: 'ai', text: aiWord }]);
+                        setUsedWords(prev => new Set(prev).add(aiWord));
+                        setMessage(`AI가 '${aiWord}'라고 답했습니다. 다음 단어는?`);
+                    }
+                }, 800);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col items-center p-4">
+                    {/* Header */}
+                    <div className="w-full max-w-md bg-white rounded-3xl shadow-lg p-6 mb-4 text-center border-b-4 border-sky-200">
+                        <h1 className="text-3xl font-black text-sky-600 flex items-center justify-center gap-2">
+                            <i data-lucide="brain" className="w-8 h-8"></i> 끝말잇기 대결
+                        </h1>
+                        <div className="mt-2 flex justify-between items-center px-4">
+                            <div className="bg-sky-100 px-4 py-1 rounded-full text-sky-700 font-bold">
+                                점수: {score}
+                            </div>
+                            <button 
+                                onClick={startGame}
+                                className="flex items-center gap-1 text-sm bg-orange-400 hover:bg-orange-500 text-white px-3 py-1 rounded-full transition-colors font-bold shadow-sm"
+                            >
+                                <i data-lucide="refresh-cw" className="w-4 h-4"></i> 다시 시작
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Message Area */}
+                    <div className="w-full max-w-md bg-white rounded-2xl p-4 mb-4 shadow-sm border-2 border-sky-100 flex items-center gap-3">
+                        <i data-lucide="alert-circle" className="text-sky-500 shrink-0"></i>
+                        <p className="font-semibold text-sm sm:text-base text-sky-800">{message}</p>
+                    </div>
+
+                    {/* Chat Area */}
+                    <div 
+                        ref={scrollRef}
+                        className="w-full max-w-md flex-1 bg-white rounded-3xl shadow-inner border-4 border-white p-4 overflow-y-auto mb-4 space-y-3 min-h-[400px] chat-scroll"
+                    >
+                        {history.length === 0 && (
+                            <div className="h-full flex flex-col items-center justify-center text-gray-300 space-y-4 py-20">
+                                <i data-lucide="trophy" className="w-16 h-16 opacity-20"></i>
+                                <p className="text-center font-medium">AI 친구가 기다리고 있어요!<br/>시작 버튼을 눌러주세요.</p>
+                            </div>
+                        )}
+                        {history.map((msg, idx) => (
+                            <div key={idx} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'} items-end gap-2`}>
+                                {msg.sender === 'ai' && (
+                                    <div className="w-8 h-8 rounded-full bg-sky-500 flex items-center justify-center text-white shrink-0">
+                                        <i data-lucide="brain" className="w-5 h-5"></i>
+                                    </div>
+                                )}
+                                <div className={`max-w-[80%] px-5 py-3 rounded-2xl font-bold text-lg shadow-sm ${
+                                    msg.sender === 'user' 
+                                    ? 'bg-orange-400 text-white rounded-br-none' 
+                                    : 'bg-sky-100 text-sky-900 rounded-bl-none'
+                                }`}>
+                                    {msg.text}
+                                </div>
+                                {msg.sender === 'user' && (
+                                    <div className="w-8 h-8 rounded-full bg-orange-500 flex items-center justify-center text-white shrink-0">
+                                        <i data-lucide="user" className="w-5 h-5"></i>
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Input Area */}
+                    <form onSubmit={handleSubmit} className="w-full max-w-md relative">
+                        <input
+                            type="text"
+                            value={inputValue}
+                            onChange={(e) => setInputValue(e.target.value)}
+                            disabled={isGameOver}
+                            placeholder={isGameOver ? "게임을 시작해주세요" : "단어를 입력하세요!"}
+                            className="w-full px-6 py-4 rounded-full border-4 border-sky-200 focus:border-sky-400 focus:outline-none text-xl font-bold shadow-lg disabled:bg-gray-50 transition-all placeholder:text-gray-300"
+                        />
+                        <button
+                            type="submit"
+                            disabled={isGameOver}
+                            className="absolute right-2 top-2 bottom-2 bg-sky-500 hover:bg-sky-600 disabled:bg-gray-300 text-white px-6 rounded-full transition-all shadow-md flex items-center justify-center"
+                        >
+                            <i data-lucide="send" className="w-6 h-6"></i>
+                        </button>
+                    </form>
+
+                    <div className="mt-6 text-xs text-gray-400 text-center max-w-xs leading-relaxed">
+                        <p>💡 규칙: 두 글자 이상, 단어 중복 안됨, 두음법칙 허용</p>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
